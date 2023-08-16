@@ -1,12 +1,15 @@
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import React from 'react';
 import {FlatList} from 'react-native-gesture-handler';
+import {useSelector} from 'react-redux';
+import {RootState} from '../Redux/store';
 
 const Upload = (props: any) => {
-  const {file} = props?.route?.params;
+  const videos = useSelector((state: RootState) => state.video.value);
+
   const _renderItem = ({item}: any) => (
     <View style={styles.item}>
-      <Text style={styles.title}>{item?.file?.name}</Text>
+      <Text style={styles.title}>{item?.name}</Text>
       <Text style={[styles.download, item?.loaded === 100 && {color: 'green'}]}>
         Uploaded {item?.loaded}%
       </Text>
@@ -26,7 +29,7 @@ const Upload = (props: any) => {
         <Text style={{color: 'white', fontWeight: '500'}}>Go Back</Text>
       </TouchableOpacity>
       <FlatList
-        data={file}
+        data={videos}
         renderItem={_renderItem}
         keyExtractor={item => item?.file?.name.toString()}
         style={{marginBottom: 50}}

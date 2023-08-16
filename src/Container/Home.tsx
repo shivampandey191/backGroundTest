@@ -1,17 +1,12 @@
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import React, {useState} from 'react';
-import Video from 'react-native-video';
 
 const Home = ({navigation}: any) => {
-  const [video, setVideo] = useState();
 
   const buttonOptions = [
     {
       title: 'Capture Video',
-      onPress: () => navigation.navigate('CameraScreen', {getVideo: setVideo}),
-    },
-    {
-      title: 'Video',
+      onPress: () => navigation.navigate('CameraScreen'),
     },
     {
       title: 'Upload',
@@ -21,17 +16,11 @@ const Home = ({navigation}: any) => {
   return (
     <View style={styles.center}>
       {buttonOptions.map((item, index) => {
-        return item.title === 'Video' ? (
-          video ? (
-            <Video
-              source={{uri: 'background'}} // Can be a URL or a local file.
-              style={styles.video}
-            />
-          ) : (
-            <></>
-          )
-        ) : (
-          <TouchableOpacity onPress={item.onPress} style={styles.button}>
+        return (
+          <TouchableOpacity
+            key={index.toString()}
+            onPress={item.onPress}
+            style={styles.button}>
             <Text style={styles.title}>{item.title}</Text>
           </TouchableOpacity>
         );

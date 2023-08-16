@@ -1,10 +1,14 @@
 import React, {useEffect, useState, useRef} from 'react';
-import {View, StyleSheet, TouchableOpacity, Text} from 'react-native';
+import {View, StyleSheet, TouchableOpacity, Text, Platform} from 'react-native';
 import {Camera, useCameraDevices} from 'react-native-vision-camera';
 import Video from 'react-native-video';
-import axios from 'axios';
+import Upload from 'react-native-background-upload';
+import { useDispatch } from 'react-redux'
+import { update } from '../Redux/videoReducer';
 
 function CameraScreen({navigation}: any) {
+  const dispatch = useDispatch()
+
   const camera = useRef<any>(null);
   const devices = useCameraDevices();
   const device = devices.back;
@@ -13,7 +17,50 @@ function CameraScreen({navigation}: any) {
   const [isStopped, setIsStopped] = useState(true);
   const [showUpload, setShowUpload] = useState(true);
   const [videoSource, setVideoSource] = useState<any>();
-  const [files, setFiles] = useState<any[]>([]);
+
+  const UploadVideo1 = () => {
+    setShowUpload(false);
+    const options: any = {
+      url: 'http://10.0.2.2:3000/uploadVideo',
+      path:
+        Platform.OS === 'android'
+          ? videoSource?.path.replace('file://', '')
+          : videoSource?.path,
+      method: 'POST',
+      type: 'raw',
+      maxRetries: 2, 
+      headers: {
+        'content-type': 'application/octet-stream',
+        'my-custom-header': 's3headervalueorwhateveryouneed',
+      },
+      notification: {
+        enabled: true,
+      },
+      useUtf8Charset: true,
+    };
+    Upload.startUpload(options)
+      .then(uploadId => {
+        console.log('Upload started');
+        Upload.addListener('progress', uploadId, data => {
+          console.log(`Progress: ${data?.progress}%`);
+          dispatch(update({
+            name:videoSource.name,loaded:data?.progress
+          }))
+        });
+        Upload.addListener('error', uploadId, data => {
+          console.log(`Error: ${data.error}%`);
+        });
+        Upload.addListener('cancelled', uploadId, data => {
+          console.log('Cancelled!');
+        });
+        Upload.addListener('completed', uploadId, data => {
+          console.log('Completed!');
+        });
+      })
+      .catch(err => {
+        console.log('Upload error!', err);
+      });
+  };
 
   useEffect(() => {
     async function getPermission() {
@@ -31,52 +78,6 @@ function CameraScreen({navigation}: any) {
     return unsubscribe;
   }, [navigation]);
 
-  const uploadVideo = async () => {
-    setShowUpload(false);
-    setFiles([...files, {file: videoSource, loaded: 0}]);
-    var formData = new FormData();
-    formData.append('file', videoSource);
-
-    axios
-      .post('http://10.0.2.2:3000/uploadVideo', formData, {
-        headers: {
-          'Content-Type':
-            'application/x-www-form-urlencoded; charset=UTF-8;application/json',
-        },
-        onUploadProgress: ({loaded, total}: any) => {
-          setFiles(prevState => {
-            const newState = [...prevState];
-            newState[newState.length - 1].loaded = Math.round(
-              (loaded / total) * 100,
-            );
-            return newState;
-          });
-        },
-      })
-      .then((res: any) => {
-        console.log('uploaded successfully', res);
-      })
-      .catch(err => {
-        console.log('Error while uploading', err);
-      });
-  };
-
-  const getUploadMedia = (media: any) => {
-    const extension = 'mp4';
-    let video = media?.path || media?.uri;
-    if (media?.data) {
-      video = `data:${media?.mime};base64,${media?.data}`;
-    }
-    return {
-      uri: video,
-      fileName: `media_${Date.now()}.${extension}`,
-      name: `media__${Date.now()}.${extension}`,
-      path: media?.path,
-      fileSize: media?.size,
-      data: media?.path,
-    };
-  };
-
   const captureVideo = async () => {
     setIsStopped(false);
     if (camera?.current !== null) {
@@ -93,6 +94,22 @@ function CameraScreen({navigation}: any) {
       }
     }
   };
+  const getUploadMedia = (media: any) => {
+    const extension = 'mp4';
+    let video = media?.path || media?.uri;
+    if (media?.data) {
+      video = `data:${media?.mime};base64,${media?.data}`;
+    }
+    return {
+      uri: video,
+      fileName: `media_${Date.now()}.${extension}`,
+      name: `media__${Date.now()}.${extension}`,
+      path: media?.path,
+      fileSize: media?.size,
+      data: media?.path,
+    };
+  };
+
   const stopRecording = async () => {
     try {
       await camera.current.stopRecording();
@@ -147,10 +164,8 @@ function CameraScreen({navigation}: any) {
                   width: 100,
                 },
               ]}
-              onPress={() => navigation?.navigate('Upload', {file: files})}>
-              <Text style={{color: 'white', fontWeight: '500'}}>
-                Go to Uploads
-              </Text>
+              onPress={() => navigation?.goBack()}>
+              <Text style={{color: 'white', fontWeight: '500'}}>Go Back</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.buttonContainer}>
@@ -181,7 +196,7 @@ function CameraScreen({navigation}: any) {
                     },
                   ]}
                   onPress={() => {
-                    uploadVideo();
+                    UploadVideo1();
                   }}>
                   <Text style={{color: 'white', fontWeight: '500'}}>
                     Upload
